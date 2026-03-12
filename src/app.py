@@ -353,9 +353,27 @@ elif app_mode == "Manual Patient Prediction":
 
         st.subheader("Future Disease Projections")
         potential_diseases = disease_rules(patient_dict)
+        
+        # Display as horizontal widgets/cards
         if potential_diseases:
-            for d in potential_diseases:
-                st.write(f"- **{d['name']}**: {d['risk']}% risk (Based on: {d['reason']})")
+            # Create a row of cards for the top risks
+            cols = st.columns(len(potential_diseases[:4])) # Show up to top 4 in columns
+            for i, d in enumerate(potential_diseases[:4]):
+                with cols[i]:
+                    color = "#ff4b4b" if d['risk'] > 70 else "#fd7e14" if d['risk'] > 40 else "#28a745"
+                    st.markdown(f"""
+                        <div style="background-color: white; padding: 15px; border-radius: 10px; border-left: 5px solid {color}; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; height: 100%;">
+                            <h4 style="margin: 0; font-size: 0.9em; color: #333;">{d['name']}</h4>
+                            <h2 style="margin: 5px 0; color: {color};">{d['risk']}%</h2>
+                            <p style="margin: 0; font-size: 0.7em; color: #666;">{d['reason']}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+            
+            # Additional details if any
+            if len(potential_diseases) > 4:
+                with st.expander("Show more risks"):
+                    for d in potential_diseases[4:]:
+                        st.write(f"- **{d['name']}**: {d['risk']}% (Reason: {d['reason']})")
         else:
             st.write("No significant future disease risks detected based on current profile.")
 
@@ -430,3 +448,26 @@ elif app_mode == "Bulk CSV Prediction":
             st.dataframe(temp_df[cols_to_show])
             
             st.download_button("📥 Download Detailed Report", temp_df.to_csv(index=False), "ckd_batch_predictions.csv")
+            
+            # Show summary widgets for the first 3 patients in the batch
+            st.divider()
+            st.markdown("### 🏥 Batch Risk Highlights (First 3 Patients)")
+            for i, row in temp_df.head(3).iterrows():
+                st.markdown(f"**Patient Record {i}**")
+                p_dict = row.to_dict()
+                complications = disease_rules(p_dict)
+                if complications:
+                    cols = st.columns(len(complications[:3]))
+                    for j, d in enumerate(complications[:3]):
+                        with cols[j]:
+                            color = "#ff4b4b" if d['risk'] > 70 else "#fd7e14" if d['risk'] > 40 else "#28a745"
+                            st.markdown(f"""
+                                <div style="background-color: white; padding: 12px; border-radius: 8px; border-left: 5px solid {color}; box-shadow: 2px 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px;">
+                                    <h5 style="margin: 0; font-size: 0.85em; color: #333;">{d['name']}</h5>
+                                    <h3 style="margin: 5px 0; color: {color};">{d['risk']}%</h3>
+                                    <p style="margin: 0; font-size: 0.65em; color: #666;">{d['reason']}</p>
+                                </div>
+                            """, unsafe_allow_html=True)
+                else: 
+                    st.write("No significant risks detected for this patient.")
+                st.divider()
