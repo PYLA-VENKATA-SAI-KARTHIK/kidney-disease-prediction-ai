@@ -32,6 +32,12 @@ def train_models(data_path):
     # Load dataset
     df = pd.read_csv(data_path)
     
+    # Pre-cleaning: remove tabs and convert '?' to NaN
+    df = df.replace(to_replace={'\t': '', '\?': np.nan}, regex=True)
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].str.strip()
+
     # Preprocessing
     # Map categorical to numeric
     df['htn'] = df['htn'].map({'yes': 1, 'no': 0})
@@ -82,5 +88,9 @@ def train_models(data_path):
     print("Models trained and saved successfully.")
 
 if __name__ == "__main__":
-    # Example usage: train_models('data/kidney_disease.csv')
-    pass
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_path", default="data/kidney_disease.csv")
+    args = parser.parse_args()
+    
+    train_models(args.data_path)
