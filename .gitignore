@@ -2,3 +2,18 @@ __pycache__/
 .streamlit/
 *.pyc
 .ipynb_checkpoints/
+
+# Python-specific
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+.vscode/
+.idea/
+
+# Large binaries/temp files
+models/*.joblib.tmp
+models/__pycache__/
