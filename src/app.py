@@ -2,11 +2,159 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import osstreamlit run src/app.py
+import os
 
 # Set page title and layout
-st.set_page_config(page_title="Chronic Kidney Disease (CKD) Prediction Portal", layout="wide")
+st.set_page_config(page_title="RenalCare AI Engine", layout="wide", page_icon="🫁")
 
+# Custom CSS for the new Dark/Modern UI
+st.markdown("""
+<style>
+    /* Theme Colors */
+    :root {
+        --primary: #9b51e0; /* Purple accent from image */
+        --dark-bg: #121212;
+        --text: #ffffff;
+    }
+    
+    .main {
+        background-color: #fcfcfc;
+    }
+    
+    /* Hero Landing Section */
+    .hero-container {
+        background-color: var(--dark-bg);
+        background-image: linear-gradient(to right, rgba(18,18,18,0.95), rgba(18,18,18,0.7)), url('https://img.freepik.com/free-vector/human-internal-organ-with-kidney_1308-111059.jpg');
+        background-size: cover;
+        background-position: center;
+        padding: 8rem 5rem;
+        border-radius: 0 0 100px 0;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-container::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 300px;
+        height: 300px;
+        background: rgba(155, 81, 224, 0.2);
+        filter: blur(100px);
+        border-radius: 50%;
+    }
+
+    .hero-title {
+        font-size: 4rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        line-height: 1.1;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.8;
+        max-width: 500px;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+    
+    /* Branding */
+    .brand-header {
+        position: absolute;
+        top: 2rem;
+        left: 5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    /* Custom Launch Button */
+    .stButton>button {
+        background-color: var(--primary) !important;
+        color: white !important;
+        border-radius: 50px !important;
+        padding: 0.8rem 2.5rem !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        border: none !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 10px 20px rgba(155, 81, 224, 0.3) !important;
+    }
+    
+    .stButton>button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 25px rgba(155, 81, 224, 0.4) !important;
+    }
+    
+    /* Bottom Section */
+    .bottom-section {
+        padding: 5rem 5rem;
+        text-align: center;
+    }
+    
+    .bottom-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #121212;
+        margin-bottom: 1rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Session State for App Landing
+if 'app_started' not in st.session_state:
+    st.session_state.app_started = False
+
+def start_app():
+    st.session_state.app_started = True
+
+# --- LANDING PAGE ---
+if not st.session_state.app_started:
+    # Modern Dark Landing UI inspired by the provided image
+    st.markdown("""
+        <div class="hero-container">
+            <div class="brand-header">
+                <span style="color:var(--primary); font-size: 2rem;">⚛️</span> RENALCARE
+            </div>
+            <h1 class="hero-title">Get Medical<br>Care early</h1>
+            <p class="hero-subtitle">
+                Advanced AI-driven diagnostics for Chronic Kidney Disease. 
+                Early detection saves lives. Analyze your renal health using 
+                precision machine learning models today.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Bottom Section with Launch Button
+    st.markdown("""
+        <div class="bottom-section">
+            <h2 class="bottom-title">How to Protect Yourself</h2>
+            <p style="color: #666; max-width: 700px; margin: 0 auto 3rem auto;">
+                Regular checkups, monitoring Serum Creatinine, and calculating eGFR are vital steps 
+                in maintaining kidney health. Our portal provides clinical-grade predictions 
+                based on your unique lab values.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1,1,1])
+    with col2:
+        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+        if st.button("LAUNCH DIAGNOSTIC APP"):
+            start_app()
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.stop()
+
+# --- MAIN APP LOGIC ---
 # Load models and preprocessing components
 @st.cache_resource
 def load_assets():
