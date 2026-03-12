@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import os
+import osstreamlit run src/app.py
 
 # Set page title and layout
 st.set_page_config(page_title="Chronic Kidney Disease (CKD) Prediction Portal", layout="wide")
@@ -65,6 +65,28 @@ def disease_rules(patient_dict):
 
 if app_mode == "Project Overview":
     st.title("🫁 Chronic Kidney Disease (CKD) Prediction Dashboard")
+    
+    # Range of Stages Visualization
+    st.markdown("### 📊 CKD Staging Guide (KDIGO 2022)")
+    cols = st.columns(6)
+    stages = [
+        {"name": "G1", "range": "≥ 90", "desc": "Normal", "color": "#28a745"},
+        {"name": "G2", "range": "60–89", "desc": "Mildly ↓", "color": "#94d066"},
+        {"name": "G3a", "range": "45–59", "desc": "Mild-Mod ↓", "color": "#ffc107"},
+        {"name": "G3b", "range": "30–44", "desc": "Mod-Sev ↓", "color": "#fd7e14"},
+        {"name": "G4", "range": "15–29", "desc": "Severely ↓", "color": "#dc3545"},
+        {"name": "G5", "range": "< 15", "desc": "Failure", "color": "#721c24"},
+    ]
+    for i, s in enumerate(stages):
+        with cols[i]:
+            st.markdown(f"""
+                <div style="background-color:{s['color']}; padding:10px; border-radius:10px; text-align:center; color:white;">
+                    <h4 style="margin:0;">{s['name']}</h4>
+                    <p style="margin:0; font-size:0.8em;">{s['range']}</p>
+                    <p style="margin:0; font-weight:bold;">{s['desc']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+    
     st.markdown("""
     ### About the Project
     This system uses machine learning (HistGradientBoosting and Random Forest ensembles) to predict 
@@ -182,15 +204,63 @@ elif app_mode == "Bulk CSV Prediction":
         st.dataframe(data.head())
         
         if st.button("Run Batch Prediction"):
-            # Preprocessing (similar to train.py)
-            temp_df = data.copy()
-            # Simple maps (assuming raw data format like Colab)
-            # We would need to handle all categorical transformations here.
-            # For simplicity, we assume columns exist.
+            # Progress bar for better UX
+            progress_bar = st.progress(0)
+            status_text = st.empty()
             
-            # (Truncated for brevity, normally you'd implement the same pipeline here)
-            st.warning("Ensure your CSV headers match the training features: " + ", ".join(features))
-            st.info("Performance: Ensemble Analysis Running...")
-            # Logic here to process the whole CSV and return a downloadable file...
-            st.success("Analysis complete. Download report below.")
-            st.download_button("Download Predictions", data.to_csv(index=False), "predictions.csv")
+            # Preprocessing
+            status_text.text("🔄 Cleaning data and calculating eGFR...")
+            temp_df = data.copy()
+            
+            # Apply cleaning (same as train.py)
+            temp_df = temp_df.replace(to_replace={'\t': '', '\?': np.nan}, regex=True)
+            for col in temp_df.columns:
+                if temp_df[col].dtype == 'object' and hasattr(temp_df[col], 'str'):
+                    temp_df[col] = temp_df[col].str.strip()
+
+            # Mapping categorical
+            mapper = {'yes': 1, 'no': 0, 'good': 1, 'poor': 0, 'normal': 1, 'abnormal': 0, 'present': 1, 'notpresent': 0}
+            cat_cols = ['htn', 'dm', 'cad', 'pe', 'ane', 'appet', 'rbc', 'pc', 'pcc', 'ba']
+            for col in cat_cols:
+                if col in temp_df.columns:
+                    temp_df[col] = temp_df[col].map(mapper)
+            
+            # Target map
+            if 'classification' in temp_df.columns:
+                temp_df['classification'] = temp_df['classification'].map({'ckd': 1, 'notckd': 0, 'ckd\t': 1})
+
+            # Calculate eGFR for each row
+            if 'sc' in temp_df.columns and 'age' in temp_df.columns:
+                temp_df['eGFR'] = 175 * (temp_df['sc'].astype(float) ** -1.154) * (temp_df['age'].astype(float) ** -0.203)
+            
+            # Predict
+            status_text.text("🤖 Running Ensemble Model...")
+            X_input = temp_df[features]
+            X_imputed = imputer.transform(X_input)
+            
+            p_hgb = hgb_model.predict_proba(X_imputed)[:, 1]
+            p_rf = rf_model.predict_proba(X_imputed)[:, 1]
+            final_probs = (p_hgb + p_rf) / 2
+            
+            temp_df['CKD_Probability'] = [f"{p*100:.1f}%" for p in final_probs]
+            temp_df['CKD_Status'] = ["CKD Detected" if p > 0.5 else "Low Risk" for p in final_probs]
+            
+            # Future Disease Logic
+            status_text.text("🏥 Analyzing future disease risks...")
+            all_complications = []
+            for idx, row in temp_df.iterrows():
+                p_dict = row.to_dict()
+                complications = disease_rules(p_dict)
+                comp_str = "; ".join([f"{c['name']} ({c['risk']}%)" for c in complications])
+                all_complications.append(comp_str if comp_str else "None")
+                progress_bar.progress((idx + 1) / len(temp_df))
+            
+            temp_df['Future_Complications'] = all_complications
+            
+            status_text.success("✅ Analysis complete!")
+            st.write("### Prediction Results")
+            # Show key result columns first
+            cols_to_show = ['CKD_Status', 'CKD_Probability', 'eGFR', 'Future_Complications'] + [c for c in temp_df.columns if c not in ['CKD_Status', 'CKD_Probability', 'eGFR', 'Future_Complications']]
+            st.dataframe(temp_df[cols_to_show])
+            
+            st.download_button("📥 Download Detailed Report", temp_df.to_csv(index=False), "ckd_batch_predictions.csv")
