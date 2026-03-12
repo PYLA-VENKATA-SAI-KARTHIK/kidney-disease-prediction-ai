@@ -71,5 +71,4 @@ The logic for disease staging and future disease risk is based on clinical guide
 
 ## 👤 Author
 
-Derived from original Google Colab research by [User].
-Converted to professional web platform by GitHub Copilot.
+Derived from original Google Colab research by venkata sai karthik pyla.
