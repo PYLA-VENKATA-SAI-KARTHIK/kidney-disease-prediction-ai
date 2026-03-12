@@ -177,11 +177,11 @@ app_mode = st.sidebar.selectbox("Choose the navigation mode:", ["Project Overvie
 # Pre-defined patient diagnosis logic (based on the Colab rules)
 def disease_rules(patient_dict):
     rules = [
-        {"name": "End-Stage Renal Disease (ESRD)", "risk": 0, "reason": "Severe loss of kidney function"},
-        {"name": "Anemia of CKD", "risk": 0, "reason": "Low Hemoglobin/PCV associated with kidney stage"},
-        {"name": "Cardiovascular Complications", "risk": 0, "reason": "History of CAD or Hypertension"},
+        {"name": "End-Stage Renal Disease (ESRD)", "risk": 0, "reason": "Severe loss of kidney function (eGFR < 30)"},
+        {"name": "Anemia of CKD", "risk": 0, "reason": "Low Hemoglobin levels associated with kidney stage"},
+        {"name": "Heart Attack Risk (Myocardial Infarction)", "risk": 0, "reason": "History of Hypertension or CAD combined with high Blood Glucose"},
+        {"name": "Congestive Heart Failure", "risk": 0, "reason": "Presence of Pedal Edema (swelling) and high Blood Pressure"},
         {"name": "Metabolic Disorder", "risk": 0, "reason": "High Blood Glucose (BDS) or Serum Creatinine levels"},
-        {"name": "Bone/Mineral Disease", "risk": 0, "reason": "High Phosphorus or Sodium levels"},
         {"name": "Urological Issues", "risk": 0, "reason": "Presence of Red Blood Cells or Bacteria in urine"}
     ]
     
@@ -193,20 +193,38 @@ def disease_rules(patient_dict):
     bgr = patient_dict.get('bgr', 0)
     rbc = patient_dict.get('rbc', 0)
     ba = patient_dict.get('ba', 0)
+    pe = patient_dict.get('pe', 0)
+    bp = patient_dict.get('bp', 80)
     
-    # Simple logic (can be expanded later)
-    if egfr < 15: rules[0]['risk'] = 90
-    elif egfr < 30: rules[0]['risk'] = 60
+    # ── RENAL LOGIC ──
+    if egfr < 15: rules[0]['risk'] = 92
+    elif egfr < 30: rules[0]['risk'] = 65
     
-    if hemo < 11: rules[1]['risk'] = 80
-    elif hemo < 13: rules[1]['risk'] = 40
+    # ── HEMATOLOGY LOGIC (Anemia) ──
+    if hemo < 10: rules[1]['risk'] = 85
+    elif hemo < 12: rules[1]['risk'] = 45
     
-    if htn == 1 or cad == 1: rules[2]['risk'] = 75
+    # ── HEART ATTACK RISK LOGIC ──
+    h_risk = 0
+    if htn == 1: h_risk += 30
+    if cad == 1: h_risk += 40
+    if bgr > 180: h_risk += 20
+    if sc > 2.5: h_risk += 10
+    rules[2]['risk'] = min(h_risk, 95)
     
-    if bgr > 150: rules[3]['risk'] = 70
-    elif sc > 2.0: rules[3]['risk'] = 65
+    # ── HEART FAILURE LOGIC ──
+    hf_risk = 0
+    if pe == 1: hf_risk += 50
+    if bp > 140: hf_risk += 20
+    if egfr < 45: hf_risk += 15
+    rules[3]['risk'] = min(hf_risk, 90)
     
-    if rbc == 0 or ba == 1: rules[5]['risk'] = 85
+    # ── METABOLIC LOGIC ──
+    if bgr > 150: rules[4]['risk'] = 75
+    elif sc > 2.0: rules[4]['risk'] = 60
+    
+    # ── UROLOGICAL LOGIC ──
+    if rbc == 0 or ba == 1: rules[5]['risk'] = 80
     
     # Sort by risk
     return sorted([r for r in rules if r['risk'] > 0], key=lambda x: x['risk'], reverse=True)
@@ -307,12 +325,12 @@ elif app_mode == "Manual Patient Prediction":
         patient_dict['eGFR'] = egfr
         
         # Build features for prediction
-        input_data = [patient_dict[f] for f in features]
+        input_data = [patient_dict[f] for f in features] # type: ignore
         input_array = np.array(input_data).reshape(1, -1)
-        input_imputed = imputer.transform(input_array)
+        input_imputed = imputer.transform(input_array) # type: ignore
         
-        prob_hgb = hgb_model.predict_proba(input_imputed)[0][1]
-        prob_rf = rf_model.predict_proba(input_imputed)[0][1]
+        prob_hgb = hgb_model.predict_proba(input_imputed)[0][1] # pyright: ignore[reportOptionalMemberAccess]
+        prob_rf = rf_model.predict_proba(input_imputed)[0][1] # type: ignore
         final_prob = (prob_hgb + prob_rf) / 2
         
         # Visualize Result
@@ -384,10 +402,10 @@ elif app_mode == "Bulk CSV Prediction":
             # Predict
             status_text.text("🤖 Running Ensemble Model...")
             X_input = temp_df[features]
-            X_imputed = imputer.transform(X_input)
+            X_imputed = imputer.transform(X_input) # type: ignore
             
-            p_hgb = hgb_model.predict_proba(X_imputed)[:, 1]
-            p_rf = rf_model.predict_proba(X_imputed)[:, 1]
+            p_hgb = hgb_model.predict_proba(X_imputed)[:, 1] # pyright: ignore[reportOptionalMemberAccess]
+            p_rf = rf_model.predict_proba(X_imputed)[:, 1] # type: ignore
             final_probs = (p_hgb + p_rf) / 2
             
             temp_df['CKD_Probability'] = [f"{p*100:.1f}%" for p in final_probs]
@@ -401,7 +419,7 @@ elif app_mode == "Bulk CSV Prediction":
                 complications = disease_rules(p_dict)
                 comp_str = "; ".join([f"{c['name']} ({c['risk']}%)" for c in complications])
                 all_complications.append(comp_str if comp_str else "None")
-                progress_bar.progress((idx + 1) / len(temp_df))
+                progress_bar.progress((idx + 1) / len(temp_df)) # type: ignore
             
             temp_df['Future_Complications'] = all_complications
             
